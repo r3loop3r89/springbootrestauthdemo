@@ -12,6 +12,7 @@ import org.springframework.security.web.DefaultRedirectStrategy;
 import org.springframework.security.web.RedirectStrategy;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
+import org.springframework.security.web.session.ConcurrentSessionFilter;
 import org.springframework.security.web.util.UrlUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
@@ -26,7 +27,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
 
-public class CustomConcurrentSessionFilter extends GenericFilterBean {
+public class CustomConcurrentSessionFilter extends ConcurrentSessionFilter {
 
    SessionRegistry sessionRegistry;
    String expiredUrl;
@@ -35,14 +36,13 @@ public class CustomConcurrentSessionFilter extends GenericFilterBean {
    public static final int HTTP_STATUS_AUTHENTICATION_TIMEOUT = 419;
 
    public CustomConcurrentSessionFilter(SessionRegistry sessionRegistry) {
+      super(sessionRegistry);
       Assert.notNull(sessionRegistry, "SessionRegistry required");
       this.sessionRegistry = sessionRegistry;
    }
 
-   public CustomConcurrentSessionFilter() {
-   }
-
    public CustomConcurrentSessionFilter(SessionRegistry sessionRegistry, String expiredUrl) {
+      super(sessionRegistry, expiredUrl);
       Assert.notNull(sessionRegistry, "SessionRegistry required");
       Assert.isTrue(expiredUrl == null || UrlUtils.isValidRedirectUrl(expiredUrl),
         expiredUrl + " isn't a valid redirect URL");
@@ -51,7 +51,7 @@ public class CustomConcurrentSessionFilter extends GenericFilterBean {
    }
 
    @Override
-   public void afterPropertiesSet() throws ServletException {
+   public void afterPropertiesSet() {
       Assert.notNull(sessionRegistry, "SessionRegistry required");
       Assert.isTrue(expiredUrl == null || UrlUtils.isValidRedirectUrl(expiredUrl),
         expiredUrl + " isn't a valid redirect URL");

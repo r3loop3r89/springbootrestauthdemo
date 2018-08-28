@@ -18,27 +18,38 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
-import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.*;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
    @Autowired
+   SessionRegistry sessionRegistry;
+   @Autowired
+   CompositeSessionAuthenticationStrategy compositeSessionAuthenticationStrategy;
+   @Autowired
+   CustomConcurrentSessionFilter customConcurrentSessionFilter;
+
+
+   @Autowired
    @Qualifier("customUserDetailsService")
    private UserDetailsService userDetailsService;
-
    @Autowired
    private BCryptPasswordEncoder bCryptPasswordEncoder;
 
@@ -57,8 +68,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         .authenticated()
         .and()
         .sessionManagement()
-        .sessionAuthenticationStrategy(new ChangeSessionIdAuthenticationStrategy())
-        .maximumSessions(1);
+        .sessionAuthenticationStrategy(compositeSessionAuthenticationStrategy);
+      http.addFilter(customConcurrentSessionFilter);
    }
 
    @Autowired
@@ -137,6 +148,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
          }
       });
 
+      authenticationFilter.setSessionAuthenticationStrategy(compositeSessionAuthenticationStrategy);
+
       return authenticationFilter;
    }
 
@@ -144,5 +157,33 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
    public BCryptPasswordEncoder passwordEncoder() {
       BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
       return bCryptPasswordEncoder;
+   }
+
+   @Bean
+   SessionRegistry sessionRegistry() {
+      SessionRegistry sessionRegistry = new SessionRegistryImpl();
+      return sessionRegistry;
+   }
+
+   @Bean
+   CustomConcurrentSessionFilter customConcurrentSessionFilter() {
+      CustomConcurrentSessionFilter customConcurrentSessionFilter = new CustomConcurrentSessionFilter(sessionRegistry);
+      return customConcurrentSessionFilter;
+   }
+
+   @Bean
+   CompositeSessionAuthenticationStrategy compositeSessionAuthenticationStrategy() {
+      List<SessionAuthenticationStrategy> delegateStrategies = new ArrayList<>();
+
+      ConcurrentSessionControlAuthenticationStrategy concurrentSessionControlAuthenticationStrategy = new ConcurrentSessionControlAuthenticationStrategy(sessionRegistry);
+      concurrentSessionControlAuthenticationStrategy.setMaximumSessions(1);
+      delegateStrategies.add(concurrentSessionControlAuthenticationStrategy);
+      delegateStrategies.add(new SessionFixationProtectionStrategy());
+      delegateStrategies.add(new RegisterSessionAuthenticationStrategy(sessionRegistry));
+
+      CompositeSessionAuthenticationStrategy compositeSessionAuthenticationStrategy
+        = new CompositeSessionAuthenticationStrategy(delegateStrategies);
+
+      return compositeSessionAuthenticationStrategy;
    }
 }
