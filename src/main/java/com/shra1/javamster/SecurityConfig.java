@@ -23,6 +23,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import javax.servlet.ServletException;
@@ -56,6 +57,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         .authenticated()
         .and()
         .sessionManagement()
+        .sessionAuthenticationStrategy(new ChangeSessionIdAuthenticationStrategy())
         .maximumSessions(1);
    }
 
@@ -117,7 +119,10 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
       authenticationFilter.setAuthenticationFailureHandler(new AuthenticationFailureHandler() {
          @Override
-         public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException {
+         public void onAuthenticationFailure(HttpServletRequest request,
+                                             HttpServletResponse response,
+                                             AuthenticationException exception)
+           throws IOException, ServletException {
 
             LoginFailureResponse loginFailureResponse = new LoginFailureResponse();
             if (exception instanceof BadCredentialsException) {
